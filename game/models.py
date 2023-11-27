@@ -7,11 +7,12 @@ from rest_framework import serializers
 
 class Role(models.Model):
     name = models.CharField(max_length=20)
-    base_attack = models.FloatField(default=np.random.normal(200, 50))
-    base_defense = models.FloatField(default=np.random.normal(200, 50))
-    base_health = models.FloatField(default=np.random.normal(3000, 500))
+    base_attack = models.FloatField(default=200)
+    base_defense = models.FloatField(default=200)
+    base_health = models.FloatField(default=3000)
     base_critical_rate = models.FloatField(default=5)
     base_critical_damage = models.FloatField(default=50)
+    birth = models.DateTimeField(auto_now_add=True)
 
     def get_attack(self):
         return (
@@ -64,10 +65,11 @@ class RoleSerializer(serializers.ModelSerializer):
     health = serializers.SerializerMethodField()
     critical_rate = serializers.SerializerMethodField()
     critical_damage = serializers.SerializerMethodField()
+    birth = serializers.SerializerMethodField()
 
     class Meta:
         model = Role
-        fields = ('id', 'name', 'attack', 'defense', 'health', 'critical_rate', 'critical_damage', 'equipments')
+        fields = ('id', 'name', 'attack', 'defense', 'health', 'critical_rate', 'critical_damage', 'equipments', 'birth')
 
     def get_equipments(self, obj):
         equipments = EquipmentEntity.objects.filter(owner_id=obj.id)
@@ -87,6 +89,9 @@ class RoleSerializer(serializers.ModelSerializer):
 
     def get_critical_damage(self, obj):
         return obj.get_critical_damage()
+
+    def get_birth(self, obj):
+        return obj.birth
 
 
 class Equipment(models.Model):

@@ -29,6 +29,7 @@ type Role = {
   critical_damage: number,
   equipments: Equipment[],
   card: HTMLElement | null,
+  birth: Date,
 }
 type EquipmentLevel = {
   level: number,
@@ -39,6 +40,9 @@ type EquipmentDetailConfig = {
   showEquipmentDetail: boolean,
   open: (equipment: Equipment) => void,
   close: () => void,
+}
+type Pause = {
+  pause: boolean,
 }
 const equipmentDetailConfig = ref<EquipmentDetailConfig>({
   equipment: {} as Equipment,
@@ -75,6 +79,7 @@ const nullRole: Role = {
   critical_damage: 0,
   equipments: [],
   card: null,
+  birth: new Date(),
 }
 const roles = ref<Role[]>([
   nullRole,
@@ -118,6 +123,15 @@ async function attack(attacker: Role, defender: Role): Promise<FightResult> {
     shake(defender.card);
   }
   defender.current_health -= damage;
+  if (!fastForwardInstance.value.fastForward) {
+    log.value.push(`${attacker.name}对${defender.name}造成了${damage.toFixed(2)}点伤害`);
+    await new Promise((resolve) => {
+      setTimeout(() => {
+        resolve(null);
+      }, 2000);
+    })
+  }
+
   if (defender.current_health <= 0) {
     defender.current_health = 0;
     return {
@@ -135,6 +149,15 @@ async function attack(attacker: Role, defender: Role): Promise<FightResult> {
 
 async function fight(attacker: Role, defender: Role) {
   while (true) {
+    if (pauseInstance.value.pause) {
+      await new Promise((resolve) => {
+        setTimeout(() => {
+          resolve(null);
+        }, 1000);
+      })
+      continue;
+    }
+
     const result = await attack(attacker, defender);
     if (result.isEnd) {
       return result;
@@ -152,14 +175,40 @@ async function decorate_fight() {
       })
       roles.value[0].current_health = roles.value[0].health;
       roles.value[1].current_health = roles.value[1].health;
-      console.log(roles.value);
-      const res = await fight(roles.value[0], roles.value[1]);
-      log.value.push(`${res.winner.name}获胜`);
+      if (fastForwardInstance.value.fastForward) {
+        log.value.push(`${roles.value[0].name}与${roles.value[1].name}开始战斗`);
+        await new Promise((resolve) => {
+          setTimeout(() => {
+            resolve(null);
+          }, 2000);
+        })
+      }
+      let res: FightResult;
+      if (fastForwardInstance.value.fastForward) {
+        const one2two_damage = calculateDamage(roles.value[0].attack, roles.value[1].defense, 100, roles.value[0].critical_damage);
+        const two2one_damage = calculateDamage(roles.value[1].attack, roles.value[0].defense, 100, roles.value[1].critical_damage);
+        if (one2two_damage.damage > two2one_damage.damage) {
+          res = {
+            isEnd: false,
+            winner: roles.value[0],
+            loser: roles.value[1],
+          };
+        } else {
+          res = {
+            isEnd: false,
+            winner: roles.value[1],
+            loser: roles.value[0],
+          }
+        }
+      }else{
+        res = await fight(roles.value[0], roles.value[1]);
+      }
       roles.value = [nullRole, nullRole];
-      await api.post('game/handle_fight/', {
+      const response = await api.post('game/handle_fight/', {
         winner: res.winner.id,
         loser: res.loser.id,
       })
+      log.value.push(response.data.result);
     })
   }
 }
@@ -168,6 +217,72 @@ const log = ref<string[]>([]);
 onMounted(() => {
   decorate_fight();
 })
+const pauseInstance = ref<Pause>({
+  pause: false,
+})
+
+function pause() {
+  pauseInstance.value.pause = !pauseInstance.value.pause;
+}
+
+async function refresh() {
+  pause();
+  log.value = [];
+  roles.value = [nullRole, nullRole];
+  await api.get('game/init/');
+  pause();
+  await decorate_fight();
+}
+
+type health_status = {
+  ratioInterval: number[],
+  color: string,
+}
+const healthy: health_status = {
+  ratioInterval: [0.8, 1],
+  color: 'green',
+}
+const injured: health_status = {
+  ratioInterval: [0.5, 0.8],
+  color: 'orange',
+}
+const dying: health_status = {
+  ratioInterval: [0, 0.5],
+  color: 'red',
+}
+const dead: health_status = {
+  ratioInterval: [-1, 0],
+  color: 'black',
+}
+const health_status_list: health_status[] = [
+  healthy,
+  injured,
+  dying,
+  dead,
+]
+
+function getHealthStatus(current_health: number, health: number): health_status {
+  const ratio = current_health / health;
+  for (const health_status of health_status_list) {
+    if (ratio >= health_status.ratioInterval[0] && ratio <= health_status.ratioInterval[1]) {
+      return health_status;
+    }
+  }
+  return dead;
+}
+
+//快进
+type FastForward = {
+  fastForward: boolean,
+}
+const fastForwardInstance = ref<FastForward>({
+  fastForward: false,
+})
+
+function fastForward() {
+  fastForwardInstance.value.fastForward = !fastForwardInstance.value.fastForward;
+}
+
 </script>
 
 <template>
@@ -175,12 +290,21 @@ onMounted(() => {
     <EquipmentDetail :close="equipmentDetailConfig.close" :equipment="equipmentDetailConfig.equipment"/>
   </q-dialog>
   <q-page class="flex flex-center">
+    <!--    刷新 暂停按钮 -->
+    <q-btn-group>
+      <q-btn color="green" label="刷新" @click="refresh()"/>
+      <q-btn :color="pauseInstance.pause ? 'red' : 'green'" label="暂停" @click="pause()"/>
+      <q-btn :color="fastForwardInstance.fastForward ? 'red' : 'green'" label="快进" @click="fastForward()"/>
+    </q-btn-group>
     <q-card v-for="role in roles" :key="role.id" :ref="(el) => role.card = el ? el.$el : null" class="q-ma-md"
             style="width: 400px">
       <q-card-section>
         <q-item>
           <q-item-section>
             <q-item-label>{{ role.name }}</q-item-label>
+          </q-item-section>
+          <q-item-section side>
+            <q-item-label>{{ role.birth.toLocaleString().replace('T', ' ') }}</q-item-label>
           </q-item-section>
         </q-item>
       </q-card-section>
@@ -193,7 +317,7 @@ onMounted(() => {
             <q-item-label>{{ role.current_health.toFixed(2) }} / {{ role.health.toFixed(2) }}</q-item-label>
           </q-item-section>
         </q-item>
-        <q-linear-progress :color="role.current_health / role.health > 0.5 ? 'green' : 'red'"
+        <q-linear-progress :color="getHealthStatus(role.current_health, role.health).color"
                            :value="role.current_health / role.health "/>
       </q-card-section>
       <q-card-section>
