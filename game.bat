@@ -3,7 +3,9 @@ CHCP 65001
 @echo off
 set /p command=请输入构建命令:
 if "%command%"=="init" (
-    pyenv\\Scripts\\python.exe -m pip install -r requirements.txt
+    python -m venv pyenv
+    call pyenv\\Scripts\\activate.bat
+    pip install -r requirements.txt
     pnpm -C gui install
 ) else if "%command%"=="dev front" (
     pnpm -C gui run dev
@@ -16,8 +18,7 @@ if "%command%"=="init" (
     call pyenv\\Scripts\\activate.bat
     python manage.py migrate
     python manage.py makemigrations
-)
-else (
+) else (
     echo 未知命令
 )
 

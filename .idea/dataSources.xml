@@ -1,14 +1,17 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="DataSourceManagerImpl" format="xml" multifile-model="true">
-    <data-source source="LOCAL" name="Django default" uuid="b5767951-f7af-4451-885f-6d0040f611c4">
+    <data-source source="LOCAL" name="db" uuid="5bcbc179-3848-42fa-810c-8baf466b9dff">
       <driver-ref>sqlite.xerial</driver-ref>
       <synchronize>true</synchronize>
-      <imported>true</imported>
-      <remarks>$PROJECT_DIR$/play/settings.py</remarks>
       <jdbc-driver>org.sqlite.JDBC</jdbc-driver>
-      <jdbc-url>jdbc:sqlite:D:\code\python\game\numerical_inflation\db.sqlite3</jdbc-url>
+      <jdbc-url>jdbc:sqlite:D:\code\project\game\numerical_inflation\db.sqlite3</jdbc-url>
       <working-dir>$ProjectFileDir$</working-dir>
+      <libraries>
+        <library>
+          <url>file://C:/tools/jar/org/xerial/sqlite-jdbc/3.39.2.1/sqlite-jdbc-3.39.2.1.jar</url>
+        </library>
+      </libraries>
     </data-source>
   </component>
 </project>
